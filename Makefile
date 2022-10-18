@@ -30,7 +30,7 @@ lint-ci:
 test-go:
 	go test ./server/...
 
-distclelan:
+distclean:
 	rm -fr ./build
 
 ./build/test:
