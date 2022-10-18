@@ -222,9 +222,11 @@ func ExampleListener_Connections() {
 				fmt.Sprintf("While send data to %s: %v", tcpAddr, err),
 			)
 		}
-	}
 
-	fmt.Println("Connections while client is sending data", lst.Connections())
+		if i == 500 {
+			fmt.Println("Connections while client is sending data", lst.Connections())
+		}
+	}
 
 	err = conn.Close()
 	if err != nil {
