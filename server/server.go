@@ -114,3 +114,14 @@ func (ps *PayloadStorage) GetPayloads() map[string][]byte {
 
 	return ps.payloads
 }
+
+func splitAddress(a string) (string, string, error) {
+	ptrStr := `^(\w+)://([^:]*:\d+)$`
+	ptr := regexp.MustCompile(ptrStr)
+	r := ptr.FindStringSubmatch(a)
+	if len(r) != 3 { // full string, first submatch and second submatch
+		return "", "", fmt.Errorf("%s is not matching with pattern expected for a valid url (%s)", a, ptrStr)
+	}
+
+	return string(r[1]), string(r[2]), nil
+}
