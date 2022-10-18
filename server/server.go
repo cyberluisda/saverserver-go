@@ -6,8 +6,13 @@ The payload items can be listed while server is running of after it is closed
 package server
 
 import (
+	"fmt"
+	"io"
+	"log"
+	"net"
 	"regexp"
 	"sync"
+	"time"
 )
 
 type BasicServer interface {
@@ -43,6 +48,201 @@ type BasicServer interface {
 
 	//Connections return the number of active connections.
 	Connections() int
+}
+
+type Listener struct {
+	PayloadStorage
+
+	// Address is the address in ip:port format where server is listening.
+	// If is not defined tcp://localhost:free_port will be used where free_port is a random port > 1024 that is not in
+	// using when server is started
+	// In the case of udp protocol de ip must be empty. For example udp://:13000
+	Address string
+
+	// Max number of connections to accept,
+	MaxConnections int
+
+	// StopTimeout is the timeout to wait for read data during Stop operation
+	StopTimeout time.Duration
+
+	activeConns    int
+	activeConnsMtx sync.Mutex
+	listener       net.Listener
+	isStarted      bool
+}
+
+const (
+	// Default max connections used if value is not defined
+	DEFAULT_MAX_CONNECTIONS = 128
+	// Default stop timeout
+	DEFAULT_STOP_TIMEOUT = time.Second
+)
+
+// Start starts the server (listener) and enable the input data processing.
+func (lst *Listener) Start() error {
+	if lst.Address == "" {
+		lst.Address = "tcp://localhost:0"
+	}
+
+	netType, addr, err := splitAddress(lst.Address)
+	if err != nil {
+		return fmt.Errorf("while extracts protocol, address and port: %w", err)
+	}
+
+	lst.listener, err = net.Listen(netType, addr)
+	if err != nil {
+		return fmt.Errorf("while starts listener: %w, '%s' '%s'", err, netType, addr)
+	}
+
+	// Default values
+	if lst.Address == "tcp://localhost:0" {
+		lst.Address = fmt.Sprintf("tcp://localhost:%d", lst.Port())
+	}
+	lst.InitPayload()
+	if lst.MaxConnections <= 0 {
+		lst.MaxConnections = DEFAULT_MAX_CONNECTIONS
+	}
+	if lst.StopTimeout == 0 {
+		lst.StopTimeout = DEFAULT_STOP_TIMEOUT
+	}
+
+	// Start the server to accept connection
+	ensureStarted := make(chan bool)
+	go func() {
+		firstConn := true
+		for {
+
+			if lst.Connections() == lst.MaxConnections {
+				log.Printf("Max active connections limit (%d) reached with %d\n", lst.MaxConnections, lst.activeConns)
+			} else {
+				if firstConn {
+					ensureStarted <- true
+					firstConn = false
+				}
+
+				conn, err := lst.listener.Accept()
+				if err != nil {
+					log.Printf("Error while accept connection %v\n", err)
+					break
+				} else {
+					go lst.handleIncomingConnection(conn)
+				}
+			}
+		}
+	}()
+
+	<-ensureStarted
+	lst.isStarted = true
+	close(ensureStarted)
+
+	return nil
+}
+
+// Stop stops the listener, no more connections will be allowed and data processing is stopped.
+func (lst *Listener) Stop() error {
+	defer func() {
+		lst.isStarted = false
+		lst.activeConns = 0
+	}()
+
+	connPending := make(chan bool)
+	defer close(connPending)
+	go func() {
+		for {
+			lst.activeConnsMtx.Lock()
+			if lst.activeConns <= 0 {
+				lst.activeConnsMtx.Unlock()
+				connPending <- true
+				break
+			}
+			lst.activeConnsMtx.Unlock()
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
+
+	select {
+	case <-connPending:
+	case <-time.After(lst.StopTimeout):
+		defer lst.listener.Close()
+		return fmt.Errorf("stop timeout %v reached while wait for stopping", lst.StopTimeout)
+	}
+
+	err := lst.listener.Close()
+	if err != nil {
+		return fmt.Errorf("while close the listener: %w", err)
+	}
+
+	return nil
+}
+
+//GetAddress returns the address where the server is listening.
+func (lst *Listener) GetAddress() string {
+	return lst.Address
+}
+
+// Port returns the listening port number or 0 if it is unknown or -1 if server is not running after call Start.
+func (lst *Listener) Port() int {
+	if lst.listener == nil {
+		return -1
+	}
+
+	tcpAddr, ok := lst.listener.Addr().(*net.TCPAddr)
+	if ok {
+		return tcpAddr.Port
+	}
+
+	return 0
+}
+
+// Accepting connections.
+func (lst *Listener) Accepting() bool {
+	lst.activeConnsMtx.Lock()
+	defer lst.activeConnsMtx.Unlock()
+	return lst.activeConns < lst.MaxConnections && lst.isStarted
+}
+
+//Connections return the number of active connections.
+func (lst *Listener) Connections() int {
+	lst.activeConnsMtx.Lock()
+	defer lst.activeConnsMtx.Unlock()
+	return lst.activeConns
+}
+
+const readBufferSize = 1024
+
+func (lst *Listener) handleIncomingConnection(conn net.Conn) {
+	defer func() {
+		lst.activeConnsMtx.Lock()
+		lst.activeConns = lst.activeConns - 1
+		lst.activeConnsMtx.Unlock()
+	}()
+
+	lst.activeConnsMtx.Lock()
+	lst.activeConns = lst.activeConns + 1
+	lst.activeConnsMtx.Unlock()
+
+	// store incoming data
+	remoteAddress := conn.RemoteAddr().String()
+	for {
+		buffer := make([]byte, readBufferSize)
+		n, err := conn.Read(buffer)
+		if err != nil && err != io.EOF {
+			log.Println("while close connection: %w", err)
+			break
+		}
+		if n != 0 {
+			lst.AddPayload(remoteAddress, buffer, n)
+		}
+		if err == io.EOF {
+			break
+		}
+	}
+
+	// close conn
+	err := conn.Close()
+	if err != nil {
+		log.Println("while close connection: %w", err)
+	}
 }
 
 type PayloadStorage struct {
