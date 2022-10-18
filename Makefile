@@ -8,9 +8,8 @@ define HELP_TEXT
 	make test               - Run the full test suite
 	make test-coverage      - Run tests and make golang coverage reports
 
-	make lint               - Run all linters
-
-
+	make lint               - Run golang linter
+	make lint-ci			- Run linter checks using golangci-lint tool (it must be installed before)
 endef
 
 help:
@@ -24,6 +23,9 @@ test-coverage: ./build/test
 
 lint:
 	go vet ./server
+
+lint-ci:
+	golangci-lint run ./server
 
 test-go:
 	go test ./server
