@@ -22,13 +22,13 @@ test-coverage: ./build/test
 	go tool cover -html=./build/test/coverage.out -o ./build/test/coverage.html
 
 lint:
-	go vet ./server
+	go vet ./server/...
 
 lint-ci:
-	golangci-lint run ./server
+	golangci-lint run ./server/...
 
 test-go:
-	go test ./server
+	go test ./server/...
 
 distclelan:
 	rm -fr ./build
