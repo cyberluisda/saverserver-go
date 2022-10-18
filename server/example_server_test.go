@@ -246,3 +246,184 @@ func ExampleListener_Connections() {
 	// Connections while client is sending data 1
 	// Connections after client is closed and connection was released 0
 }
+
+func ExampleListenerPacket_random_port() {
+	lp := ListenerPacket{}
+	err := lp.Start()
+	if err != nil {
+		panic(err)
+	}
+	p := lp.Port()
+	if p > 1024 && p < 65536 {
+		fmt.Println("OK")
+	} else {
+		fmt.Printf("Port returned and unexpected value: %d\n", p)
+	}
+
+	err = lp.Stop()
+	if err != nil {
+		panic(err)
+	}
+
+	//Output:
+	// OK
+}
+func ExampleListenerPacket_protocol_error() {
+	lp := ListenerPacket{
+		Address: "tcp://:1536",
+	}
+	err := lp.Start()
+	if err == nil {
+		fmt.Println("No Error")
+	} else {
+		fmt.Println("Error", err)
+	}
+
+	//Output:
+	// Error while starts listener: listen tcp :1536: address :1536: unexpected address type, 'tcp' ':1536'
+}
+func ExampleListenerPacket_Accepting() {
+	lst := ListenerPacket{}
+
+	fmt.Println("Accepting before start", lst.Accepting())
+
+	err := lst.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Accepting after start", lst.Accepting())
+
+	err = lst.Stop()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Accepting after stop", lst.Accepting())
+
+	//Output:
+	// Accepting before start false
+	// Accepting after start true
+	// Accepting after stop false
+}
+
+func ExampleListenerPacket_Connections() {
+	fmt.Println("Number of connections must be 0 in all cases. UDP style communications does not support connections")
+	lp := ListenerPacket{}
+
+	fmt.Println("Connections before start", lp.Connections())
+
+	err := lp.Start()
+	if err != nil {
+		panic(err)
+	}
+	if lp.Port() <= 0 {
+		panic("Port unknown")
+	}
+	fmt.Println("Connections after start", lp.Connections())
+
+	addr, err := net.ResolveUDPAddr("udp", strings.TrimPrefix(lp.GetAddress(), "udp://"))
+	if err != nil {
+		panic(
+			fmt.Sprintf("while resolve address: %v", err),
+		)
+	}
+
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		panic(
+			fmt.Sprintf("while connect to address %s address: %v", addr, err),
+		)
+	}
+
+	for i := 0; i < 10; i++ {
+		msg := fmt.Sprintf(" this is test number %d ", i)
+		_, err = conn.Write([]byte(msg))
+		if err != nil {
+			panic(
+				fmt.Sprintf("while send data to socket: %v", err),
+			)
+		}
+		if i == 9 {
+			fmt.Println("Connections while client is sending data", lp.Connections())
+		}
+	}
+
+	err = conn.Close()
+	if err != nil {
+		panic(
+			fmt.Sprintf("while close client: %v", err),
+		)
+	}
+
+	err = lp.Stop()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Connections after stop", lp.Connections())
+
+	//Output:
+	// Number of connections must be 0 in all cases. UDP style communications does not support connections
+	// Connections before start 0
+	// Connections after start 0
+	// Connections while client is sending data 0
+	// Connections after stop 0
+}
+
+func ExampleListenerPacket() {
+	lp := ListenerPacket{}
+	err := lp.Start()
+	if err != nil {
+		panic(err)
+	}
+	if lp.Port() <= 0 {
+		panic("Port unknown")
+	}
+
+	addr, err := net.ResolveUDPAddr("udp", strings.TrimPrefix(lp.GetAddress(), "udp://"))
+	if err != nil {
+		panic(
+			fmt.Sprintf("while resolve address: %v", err),
+		)
+	}
+
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		panic(
+			fmt.Sprintf("while connect to address %s address: %v", addr, err),
+		)
+	}
+
+	for i := 0; i < 10; i++ {
+		msg := fmt.Sprintf(" this is test number %d ", i)
+		_, err = conn.Write([]byte(msg))
+		if err != nil {
+			panic(
+				fmt.Sprintf("while send data to socket: %v", err),
+			)
+		}
+	}
+
+	err = conn.Close()
+	if err != nil {
+		panic(
+			fmt.Sprintf("while close client: %v", err),
+		)
+	}
+
+	time.Sleep(time.Millisecond * 100) // Wait to ensure data was received
+
+	err = lp.Stop()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("#Items", lp.NPayloadItems())
+	rAddress := lp.GetPayloadAddresses()[0]
+	fmt.Println(string(lp.GetPayload(rAddress)))
+
+	//Output:
+	// #Items 1
+	//  this is test number 0  this is test number 1  this is test number 2  this is test number 3  this is test number 4  this is test number 5  this is test number 6  this is test number 7  this is test number 8  this is test number 9
+}
