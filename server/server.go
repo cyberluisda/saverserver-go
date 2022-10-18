@@ -245,6 +245,105 @@ func (lst *Listener) handleIncomingConnection(conn net.Conn) {
 	}
 }
 
+type ListenerPacket struct {
+	PayloadStorage
+	Address string
+
+	conn    net.PacketConn
+	started bool
+}
+
+// Start starts the server (listener) and enable the input data processing.
+func (lp *ListenerPacket) Start() error {
+	if lp.Address == "" {
+		lp.Address = "udp://localhost:0"
+	}
+
+	netType, addr, err := splitAddress(lp.Address)
+	if err != nil {
+		return fmt.Errorf("while extracts protocol, address and port: %w", err)
+	}
+
+	lp.conn, err = net.ListenPacket(netType, addr)
+	if err != nil {
+		return fmt.Errorf("while starts listener: %w, '%s' '%s'", err, netType, addr)
+	}
+
+	// Default values
+	if lp.Address == "udp://localhost:0" {
+		lp.Address = fmt.Sprintf("udp://localhost:%d", lp.Port())
+	}
+
+	// Initialization
+	lp.InitPayload()
+
+	// Start the server to accept connections
+	go lp.handleIncomingPackets()
+
+	lp.started = true
+	return nil
+}
+
+// Stop stops the listener, no more connections will be allowed and data processing is stopped.
+func (lp *ListenerPacket) Stop() error {
+	defer func() {
+		lp.started = false
+	}()
+
+	if lp.started {
+		err := lp.conn.Close()
+		if err != nil {
+			return fmt.Errorf("while close packet connection: %w", err)
+		}
+	}
+
+	return nil
+}
+
+//GetAddress returns the address where the server is listening.
+func (lp *ListenerPacket) GetAddress() string {
+	return lp.Address
+}
+
+// Port returns the listening port number or 0 if it is unknown or -1 if server is not running after call Start.
+func (lp *ListenerPacket) Port() int {
+	if lp.conn == nil {
+		return -1
+	}
+
+	updAddr, ok := lp.conn.LocalAddr().(*net.UDPAddr)
+	if ok {
+		return updAddr.Port
+	}
+
+	return 0
+}
+
+// Accepting connections.
+func (lp *ListenerPacket) Accepting() bool {
+	return lp.started
+}
+
+//Connections returns 0 because in udp we have not any active connection
+func (lp *ListenerPacket) Connections() int {
+	return 0
+}
+
+func (lp *ListenerPacket) handleIncomingPackets() {
+	buffer := make([]byte, 1024)
+	//n, remoteAddr, err := 0, new(net.Addr), error(nil)
+	err := error(nil)
+	for err == nil {
+		n, remoteAddr, err := lp.conn.ReadFrom(buffer)
+		if err != nil {
+			log.Println("while read data from packet connection: %w", err)
+		} else if n > 0 {
+			addr := remoteAddr.String()
+			lp.AddPayload(addr, buffer, n)
+		}
+	}
+}
+
 type PayloadStorage struct {
 	payloads    map[string][]byte
 	payloadsMtx sync.RWMutex
