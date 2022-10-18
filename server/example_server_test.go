@@ -161,9 +161,10 @@ func ExampleListener_Accepting_max_cons() {
 				fmt.Sprintf("While send data to %s: %v", tcpAddr, err),
 			)
 		}
+		if i == 500 {
+			fmt.Println("Accepting while client is sending data", lst.Accepting())
+		}
 	}
-
-	fmt.Println("Accepting while client is sending data", lst.Accepting())
 
 	err = conn.Close()
 	if err != nil {
