@@ -155,7 +155,7 @@ func ExampleListener_Accepting_max_cons() {
 	fmt.Println("Accepting after client connection", lst.Accepting())
 	msg := []byte("")
 	for i := 0; i < 1000; i++ {
-		_, err := conn.Write(msg)
+		_, err = conn.Write(msg)
 		if err != nil {
 			panic(
 				fmt.Sprintf("While send data to %s: %v", tcpAddr, err),
@@ -216,7 +216,7 @@ func ExampleListener_Connections() {
 
 	msg := []byte("")
 	for i := 0; i < 1000; i++ {
-		_, err := conn.Write(msg)
+		_, err = conn.Write(msg)
 		if err != nil {
 			panic(
 				fmt.Sprintf("While send data to %s: %v", tcpAddr, err),
