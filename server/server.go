@@ -98,7 +98,7 @@ func (lst *Listener) Start() error {
 	if lst.Address == "tcp://localhost:0" {
 		lst.Address = fmt.Sprintf("tcp://localhost:%d", lst.Port())
 	}
-	lst.InitPayload()
+	lst.Init()
 	if lst.MaxConnections <= 0 {
 		lst.MaxConnections = DefaultMaxConnections
 	}
@@ -276,7 +276,7 @@ func (lp *ListenerPacket) Start() error {
 	}
 
 	// Initialization
-	lp.InitPayload()
+	lp.Init()
 
 	// Start the server to accept connections
 	go lp.handleIncomingPackets()
@@ -351,7 +351,7 @@ type PayloadStorage struct {
 	payloadsMtx sync.RWMutex
 }
 
-func (ps *PayloadStorage) InitPayload() {
+func (ps *PayloadStorage) Init() {
 	if ps.payloads == nil {
 		ps.payloads = make(map[string][]byte)
 	}
