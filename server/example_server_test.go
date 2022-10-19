@@ -486,3 +486,60 @@ func ExampleListenerPacket() {
 	// #Items 1
 	//  this is test number 0  this is test number 1  this is test number 2  this is test number 3  this is test number 4  this is test number 5  this is test number 6  this is test number 7  this is test number 8  this is test number 9
 }
+
+func ExampleListenerPacket_CallBack() {
+	lp := ListenerPacket{}
+	lp.CallBack = func(a string, b []byte) bool {
+		fmt.Println(string(b))
+		return false
+	}
+	err := lp.Start()
+	if err != nil {
+		panic(err)
+	}
+	if lp.Port() <= 0 {
+		panic("Port unknown")
+	}
+
+	addr, err := net.ResolveUDPAddr("udp", strings.TrimPrefix(lp.GetAddress(), "udp://"))
+	if err != nil {
+		panic(
+			fmt.Sprintf("while resolve address: %v", err),
+		)
+	}
+
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		panic(
+			fmt.Sprintf("while connect to address %s address: %v", addr, err),
+		)
+	}
+
+	msg := "This is the test"
+	_, err = conn.Write([]byte(msg))
+	if err != nil {
+		panic(
+			fmt.Sprintf("while send data to socket: %v", err),
+		)
+	}
+
+	err = conn.Close()
+	if err != nil {
+		panic(
+			fmt.Sprintf("while close client: %v", err),
+		)
+	}
+
+	time.Sleep(time.Millisecond * 100) // Wait to ensure data was received
+
+	err = lp.Stop()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("#Items", lp.NPayloadItems())
+
+	//Output:
+	// This is the test
+	// #Items 0
+}
