@@ -360,6 +360,10 @@ func (ps *PayloadStorage) Init() {
 	if ps.payloads == nil {
 		ps.payloads = make(map[string][]byte)
 	}
+
+	if ps.CallBack == nil {
+		ps.CallBack = func(addr string, payload []byte) bool { return true }
+	}
 }
 
 // NPayloadItems returns the number of payloads items received by clients.
