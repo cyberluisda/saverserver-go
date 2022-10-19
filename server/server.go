@@ -72,10 +72,10 @@ type Listener struct {
 }
 
 const (
-	// Default max connections used if value is not defined
-	DEFAULT_MAX_CONNECTIONS = 128
-	// Default stop timeout
-	DEFAULT_STOP_TIMEOUT = time.Second
+	// DefaultMaxConnections are the default max connections used if value is not defined
+	DefaultMaxConnections = 128
+	// DefaultSopTimeout is the default stop timeout
+	DefaultSopTimeout = time.Second
 )
 
 // Start starts the server (listener) and enable the input data processing.
@@ -100,10 +100,10 @@ func (lst *Listener) Start() error {
 	}
 	lst.InitPayload()
 	if lst.MaxConnections <= 0 {
-		lst.MaxConnections = DEFAULT_MAX_CONNECTIONS
+		lst.MaxConnections = DefaultMaxConnections
 	}
 	if lst.StopTimeout == 0 {
-		lst.StopTimeout = DEFAULT_STOP_TIMEOUT
+		lst.StopTimeout = DefaultSopTimeout
 	}
 
 	// Start the server to accept connection
