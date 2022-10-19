@@ -386,14 +386,19 @@ func (ps *PayloadStorage) AddPayload(addr string, buffer []byte, n int) {
 	ps.payloadsMtx.Lock()
 	defer ps.payloadsMtx.Unlock()
 
-	v, ok := ps.payloads[addr]
-	if ok {
-		v = append(v, buffer[0:n]...)
-	} else {
-		v = make([]byte, n)
-		copy(v, buffer)
+	// First apply callback and check if we have to save payload
+	save := ps.CallBack(addr, buffer[0:n])
+
+	if save {
+		v, ok := ps.payloads[addr]
+		if ok {
+			v = append(v, buffer[0:n]...)
+		} else {
+			v = make([]byte, n)
+			copy(v, buffer)
+		}
+		ps.payloads[addr] = v
 	}
-	ps.payloads[addr] = v
 }
 
 // GetPayloadAddresses returns the list of source address of the clients sent data.
