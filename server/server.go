@@ -28,16 +28,16 @@ type BasicServer interface {
 	// GetPayloadAddresses returns the list of source address of the clients sent data.
 	GetPayloadAddresses() []string
 
-	//GetPayload returns the list of payloads received by a client identified with its source address.
+	// GetPayload returns the list of payloads received by a client identified with its source address.
 	GetPayload(remoteAddr string) []byte
 
-	//GetPayloads returns the full list of payloads in a map which key is the source address of the client.
+	// GetPayloads returns the full list of payloads in a map which key is the source address of the client.
 	GetPayloads() map[string][]byte
 
-	//Reset cleans the list of payloads received until now.
+	// Reset cleans the list of payloads received until now.
 	Reset()
 
-	//GetAddress returns the address where the server is listening.
+	// GetAddress returns the address where the server is listening.
 	GetAddress() string
 
 	// Port returns the listening port number or 0 if it is unknown or -1 if server is not running after call Start.
@@ -46,7 +46,7 @@ type BasicServer interface {
 	// Accepting connections.
 	Accepting() bool
 
-	//Connections return the number of active connections.
+	// Connections return the number of active connections.
 	Connections() int
 }
 
@@ -111,7 +111,6 @@ func (lst *Listener) Start() error {
 	go func() {
 		firstConn := true
 		for {
-
 			if lst.Connections() == lst.MaxConnections {
 				log.Printf("Max active connections limit (%d) reached with %d\n", lst.MaxConnections, lst.activeConns)
 			} else {
@@ -175,7 +174,7 @@ func (lst *Listener) Stop() error {
 	return nil
 }
 
-//GetAddress returns the address where the server is listening.
+// GetAddress returns the address where the server is listening.
 func (lst *Listener) GetAddress() string {
 	return lst.Address
 }
@@ -201,7 +200,7 @@ func (lst *Listener) Accepting() bool {
 	return lst.activeConns < lst.MaxConnections && lst.isStarted
 }
 
-//Connections return the number of active connections.
+// Connections return the number of active connections.
 func (lst *Listener) Connections() int {
 	lst.activeConnsMtx.Lock()
 	defer lst.activeConnsMtx.Unlock()
@@ -300,7 +299,7 @@ func (lp *ListenerPacket) Stop() error {
 	return nil
 }
 
-//GetAddress returns the address where the server is listening.
+// GetAddress returns the address where the server is listening.
 func (lp *ListenerPacket) GetAddress() string {
 	return lp.Address
 }
@@ -324,14 +323,13 @@ func (lp *ListenerPacket) Accepting() bool {
 	return lp.started
 }
 
-//Connections returns 0 because in udp we have not any active connection
+// Connections returns 0 because in udp we have not any active connection
 func (lp *ListenerPacket) Connections() int {
 	return 0
 }
 
 func (lp *ListenerPacket) handleIncomingPackets() {
 	buffer := make([]byte, 1024)
-	//n, remoteAddr, err := 0, new(net.Addr), error(nil)
 	err := error(nil)
 	for err == nil {
 		n, remoteAddr, err := lp.conn.ReadFrom(buffer)
@@ -362,7 +360,7 @@ func (ps *PayloadStorage) NPayloadItems() int {
 	return len(ps.payloads)
 }
 
-//Reset cleans the list of payloads received until now.
+// Reset cleans the list of payloads received until now.
 func (ps *PayloadStorage) Reset() {
 	ps.payloadsMtx.Lock()
 	defer ps.payloadsMtx.Unlock()
@@ -399,14 +397,14 @@ func (ps *PayloadStorage) GetPayloadAddresses() []string {
 	return r
 }
 
-//GetPayload returns the list of payloads received by a client identified with its source address.
+// GetPayload returns the list of payloads received by a client identified with its source address.
 func (ps *PayloadStorage) GetPayload(remoteAddr string) []byte {
 	ps.payloadsMtx.RLock()
 	defer ps.payloadsMtx.RUnlock()
 	return ps.payloads[remoteAddr]
 }
 
-//GetPayloads returns the full list of payloads in a map which key is the source address of the client.
+// GetPayloads returns the full list of payloads in a map which key is the source address of the client.
 func (ps *PayloadStorage) GetPayloads() map[string][]byte {
 	ps.payloadsMtx.RLock()
 	defer ps.payloadsMtx.RUnlock()
