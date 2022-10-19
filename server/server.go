@@ -213,12 +213,12 @@ const readBufferSize = 1024
 func (lst *Listener) handleIncomingConnection(conn net.Conn) {
 	defer func() {
 		lst.activeConnsMtx.Lock()
-		lst.activeConns = lst.activeConns - 1
+		lst.activeConns--
 		lst.activeConnsMtx.Unlock()
 	}()
 
 	lst.activeConnsMtx.Lock()
-	lst.activeConns = lst.activeConns + 1
+	lst.activeConns--
 	lst.activeConnsMtx.Unlock()
 
 	// store incoming data
@@ -393,7 +393,7 @@ func (ps *PayloadStorage) GetPayloadAddresses() []string {
 	i := 0
 	for k := range ps.payloads {
 		r[i] = k
-		i = i + 1
+		i++
 	}
 
 	return r
@@ -424,4 +424,3 @@ func splitAddress(a string) (string, string, error) {
 
 	return string(r[1]), string(r[2]), nil
 }
-	
