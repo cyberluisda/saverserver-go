@@ -44,6 +44,7 @@ func ExampleListener_protocol_error() {
 	// Error while starts listener: listen udp :1536: address :1536: unexpected address type, 'udp' ':1536'
 }
 
+//nolint:lll
 func ExampleListener() {
 	lst := Listener{}
 	err := lst.Start()
@@ -430,6 +431,7 @@ func ExampleListenerPacket_Connections() {
 	// Connections after stop 0
 }
 
+//nolint:lll
 func ExampleListenerPacket() {
 	lp := ListenerPacket{}
 	err := lp.Start()
