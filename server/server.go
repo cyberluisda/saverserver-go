@@ -137,6 +137,8 @@ func (lst *Listener) Start() error {
 	return nil
 }
 
+const tickerWhileStopping = time.Millisecond * 100
+
 // Stop stops the listener, no more connections will be allowed and data processing is stopped.
 func (lst *Listener) Stop() error {
 	defer func() {
@@ -155,7 +157,7 @@ func (lst *Listener) Stop() error {
 				break
 			}
 			lst.activeConnsMtx.Unlock()
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(tickerWhileStopping)
 		}
 	}()
 
@@ -328,8 +330,10 @@ func (lp *ListenerPacket) Connections() int {
 	return 0
 }
 
+const packetsBufferSize = 1024
+
 func (lp *ListenerPacket) handleIncomingPackets() {
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, packetsBufferSize)
 	err := error(nil)
 	for err == nil {
 		n, remoteAddr, err := lp.conn.ReadFrom(buffer)
