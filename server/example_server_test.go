@@ -250,6 +250,62 @@ func ExampleListener_Connections() {
 	// Connections after client is closed and connection was released 0
 }
 
+func ExampleListener_CallBack() {
+	lst := Listener{}
+	lst.CallBack = func(a string, b []byte) bool {
+		fmt.Println(string(b))
+		return false
+	}
+
+	err := lst.Start()
+	if err != nil {
+		panic(err)
+	}
+	if lst.Port() <= 0 {
+		panic("Port unknown")
+	}
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", strings.TrimPrefix(lst.GetAddress(), "tcp://"))
+	if err != nil {
+		panic(
+			fmt.Sprintf("while resolve address: %v", err),
+		)
+	}
+
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		panic(
+			fmt.Sprintf("while connect to address %s address: %v", tcpAddr, err),
+		)
+	}
+
+	msg := "This is a test"
+	_, err = conn.Write([]byte(msg))
+	if err != nil {
+		panic(
+			fmt.Sprintf("while send data to socket: %v", err),
+		)
+	}
+
+	err = conn.Close()
+	if err != nil {
+		panic(
+			fmt.Sprintf("while close client: %v", err),
+		)
+	}
+
+	err = lst.Stop()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("#Items", lst.NPayloadItems())
+
+	//Output:
+	// This is a test
+	// #Items 0
+}
+
 func ExampleListenerPacket_random_port() {
 	lp := ListenerPacket{}
 	err := lp.Start()
