@@ -5,4 +5,4 @@
 # TODO
 
 - [ ] TLS Listener
-- [ ] Add callback support for each payload received
+- [x] Add callback support for each payload received
