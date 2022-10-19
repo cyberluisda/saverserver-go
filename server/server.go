@@ -349,6 +349,11 @@ func (lp *ListenerPacket) handleIncomingPackets() {
 type PayloadStorage struct {
 	payloads    map[string][]byte
 	payloadsMtx sync.RWMutex
+
+	// CallBack is a function called in each time that new payload is arrived. The func
+	//	receive the address and the payload received and it should return true if payload
+	// 	must be saved or false if payload must be disscarted.
+	CallBack func(addr string, payload []byte) bool
 }
 
 func (ps *PayloadStorage) Init() {
