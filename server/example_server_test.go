@@ -32,7 +32,9 @@ func ExampleListener_random_port() {
 
 func ExampleListener_protocol_error() {
 	lst := Listener{
-		Address: "udp://:1536",
+		ConnectionMgr: ConnectionMgr{
+			Address: "udp://:1536",
+		},
 	}
 	err := lst.Start()
 	if err == nil {
@@ -128,7 +130,9 @@ func ExampleListener_Accepting() {
 
 func ExampleListener_Accepting_max_cons() {
 	lst := Listener{
-		MaxConnections: 1,
+		ConnectionMgr: ConnectionMgr{
+			MaxConnections: 1,
+		},
 	}
 	err := lst.Start()
 	if err != nil {
@@ -188,7 +192,9 @@ func ExampleListener_Accepting_max_cons() {
 
 func ExampleListener_Connections() {
 	lst := Listener{
-		MaxConnections: 1,
+		ConnectionMgr: ConnectionMgr{
+			MaxConnections: 1,
+		},
 	}
 	err := lst.Start()
 	if err != nil {
