@@ -11,6 +11,8 @@ import (
 	"github.com/cyberluisda/saverserver-go/server"
 )
 
+var user bool
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Printf(
@@ -35,6 +37,9 @@ func main() {
 	}
 
 	callFunc := func(a string, bs []byte) bool {
+		if display {
+			fmt.Printf("%s - ", a)
+		}
 		fmt.Print(string(bs))
 		return false
 	}
