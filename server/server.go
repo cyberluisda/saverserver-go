@@ -355,18 +355,7 @@ func (lp *ListenerPacket) handleIncomingPackets() {
 
 type TLSListener struct {
 	PayloadStorage
-
-	// Address is the address in ip:port format where server is listening.
-	// If is not defined tcp://localhost:free_port will be used where free_port is a random port > 1024 that is not in
-	// using when server is started
-	// In the case of udp protocol de ip must be empty. For example udp://:13000
-	Address string
-
-	// Max number of connections to accept,
-	MaxConnections int
-
-	// StopTimeout is the timeout to wait for read data during Stop operation
-	StopTimeout time.Duration
+	StoppableConnectionsMgr
 
 	// KeyPem is the key used to enable TLS protocol
 	KeyPem []byte
@@ -382,11 +371,6 @@ type TLSListener struct {
 	MaxVersion uint16
 	// KeyLogWriter is the value with same name described in https://pkg.go.dev/crypto/tls@go1.16.15#Config
 	KeyLogWriter io.Writer
-
-	activeConns    int
-	activeConnsMtx sync.Mutex
-	listener       net.Listener
-	isStarted      bool
 }
 
 // Start starts the server (listener) and enable the input data processing.
@@ -474,76 +458,6 @@ func (tll *TLSListener) Start() error {
 	close(ensureStarted)
 
 	return nil
-}
-
-// Stop stops the listener, no more connections will be allowed and data processing is stopped.
-func (tll *TLSListener) Stop() error {
-	defer func() {
-		tll.isStarted = false
-		tll.activeConns = 0
-	}()
-
-	connPending := make(chan bool)
-	defer close(connPending)
-	go func() {
-		for {
-			tll.activeConnsMtx.Lock()
-			if tll.activeConns <= 0 {
-				tll.activeConnsMtx.Unlock()
-				connPending <- true
-				break
-			}
-			tll.activeConnsMtx.Unlock()
-			time.Sleep(tickerWhileStopping)
-		}
-	}()
-
-	select {
-	case <-connPending:
-	case <-time.After(tll.StopTimeout):
-		defer tll.listener.Close()
-		return fmt.Errorf("stop timeout %v reached while wait for stopping", tll.StopTimeout)
-	}
-
-	err := tll.listener.Close()
-	if err != nil {
-		return fmt.Errorf("while close the listener: %w", err)
-	}
-
-	return nil
-}
-
-// GetAddress returns the address where the server is listening.
-func (tll *TLSListener) GetAddress() string {
-	return tll.Address
-}
-
-// Port returns the listening port number or 0 if it is unknown or -1 if server is not running after call Start.
-func (tll *TLSListener) Port() int {
-	if tll.listener == nil {
-		return -1
-	}
-
-	tcpAddr, ok := tll.listener.Addr().(*net.TCPAddr)
-	if ok {
-		return tcpAddr.Port
-	}
-
-	return 0
-}
-
-// Accepting connections.
-func (tll *TLSListener) Accepting() bool {
-	tll.activeConnsMtx.Lock()
-	defer tll.activeConnsMtx.Unlock()
-	return tll.activeConns < tll.MaxConnections && tll.isStarted
-}
-
-// Connections return the number of active connections.
-func (tll *TLSListener) Connections() int {
-	tll.activeConnsMtx.Lock()
-	defer tll.activeConnsMtx.Unlock()
-	return tll.activeConns
 }
 
 func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
