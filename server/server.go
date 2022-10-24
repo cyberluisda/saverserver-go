@@ -78,12 +78,14 @@ const (
 	DefaultMaxConnections = 128
 	// DefaultSopTimeout is the default stop timeout
 	DefaultSopTimeout = time.Second
+	// Default listen address for listeners
+	DefaultListenAddressListener = "tcp://localhost:0"
 )
 
 // Start starts the server (listener) and enable the input data processing.
 func (lst *Listener) Start() error {
 	if lst.Address == "" {
-		lst.Address = "tcp://localhost:0"
+		lst.Address = DefaultListenAddressListener
 	}
 
 	netType, addr, err := splitAddress(lst.Address)
@@ -97,7 +99,7 @@ func (lst *Listener) Start() error {
 	}
 
 	// Default values
-	if lst.Address == "tcp://localhost:0" {
+	if lst.Address == DefaultListenAddressListener {
 		lst.Address = fmt.Sprintf("tcp://localhost:%d", lst.Port())
 	}
 	lst.Init()
@@ -256,10 +258,13 @@ type ListenerPacket struct {
 	started bool
 }
 
+// DefaultListenAddressListenerPacket is the default listen address for ListenerPacket
+const DefaultListenAddressListenerPacket = "udp://localhost:0"
+
 // Start starts the server (listener) and enable the input data processing.
 func (lp *ListenerPacket) Start() error {
 	if lp.Address == "" {
-		lp.Address = "udp://localhost:0"
+		lp.Address = DefaultListenAddressListenerPacket
 	}
 
 	netType, addr, err := splitAddress(lp.Address)
@@ -273,7 +278,7 @@ func (lp *ListenerPacket) Start() error {
 	}
 
 	// Default values
-	if lp.Address == "udp://localhost:0" {
+	if lp.Address == DefaultListenAddressListenerPacket {
 		lp.Address = fmt.Sprintf("udp://localhost:%d", lp.Port())
 	}
 
@@ -387,7 +392,7 @@ type TLSListener struct {
 // Start starts the server (listener) and enable the input data processing.
 func (tll *TLSListener) Start() error {
 	if tll.Address == "" {
-		tll.Address = "tcp://localhost:0"
+		tll.Address = DefaultListenAddressListener
 	}
 
 	netType, addr, err := splitAddress(tll.Address)
@@ -423,7 +428,7 @@ func (tll *TLSListener) Start() error {
 	}
 
 	// Default values
-	if tll.Address == "tcp://localhost:0" {
+	if tll.Address == DefaultListenAddressListener {
 		tll.Address = fmt.Sprintf("tcp://localhost:%d", tll.Port())
 	}
 	tll.Init()
