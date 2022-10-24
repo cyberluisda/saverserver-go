@@ -577,7 +577,8 @@ func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
 
 	for {
 		buffer := make([]byte, readBufferSize)
-		n, err := conn.Read(buffer)
+		var n int
+		n, err = conn.Read(buffer)
 		if err != nil && err != io.EOF {
 			log.Println("while close connection:", err)
 			break
