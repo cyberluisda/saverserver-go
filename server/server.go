@@ -54,23 +54,7 @@ type BasicServer interface {
 
 type Listener struct {
 	PayloadStorage
-
-	// Address is the address in ip:port format where server is listening.
-	// If is not defined tcp://localhost:free_port will be used where free_port is a random port > 1024 that is not in
-	// using when server is started
-	// In the case of udp protocol de ip must be empty. For example udp://:13000
-	Address string
-
-	// Max number of connections to accept,
-	MaxConnections int
-
-	// StopTimeout is the timeout to wait for read data during Stop operation
-	StopTimeout time.Duration
-
-	activeConns    int
-	activeConnsMtx sync.Mutex
-	listener       net.Listener
-	isStarted      bool
+	StoppableConnectionsMgr
 }
 
 const (
@@ -139,78 +123,6 @@ func (lst *Listener) Start() error {
 	close(ensureStarted)
 
 	return nil
-}
-
-const tickerWhileStopping = time.Millisecond * 100
-
-// Stop stops the listener, no more connections will be allowed and data processing is stopped.
-func (lst *Listener) Stop() error {
-	defer func() {
-		lst.isStarted = false
-		lst.activeConns = 0
-	}()
-
-	connPending := make(chan bool)
-	defer close(connPending)
-	go func() {
-		for {
-			lst.activeConnsMtx.Lock()
-			if lst.activeConns <= 0 {
-				lst.activeConnsMtx.Unlock()
-				connPending <- true
-				break
-			}
-			lst.activeConnsMtx.Unlock()
-			time.Sleep(tickerWhileStopping)
-		}
-	}()
-
-	select {
-	case <-connPending:
-	case <-time.After(lst.StopTimeout):
-		defer lst.listener.Close()
-		return fmt.Errorf("stop timeout %v reached while wait for stopping", lst.StopTimeout)
-	}
-
-	err := lst.listener.Close()
-	if err != nil {
-		return fmt.Errorf("while close the listener: %w", err)
-	}
-
-	return nil
-}
-
-// GetAddress returns the address where the server is listening.
-func (lst *Listener) GetAddress() string {
-	return lst.Address
-}
-
-// Port returns the listening port number or 0 if it is unknown or -1 if server is not running after call Start.
-func (lst *Listener) Port() int {
-	if lst.listener == nil {
-		return -1
-	}
-
-	tcpAddr, ok := lst.listener.Addr().(*net.TCPAddr)
-	if ok {
-		return tcpAddr.Port
-	}
-
-	return 0
-}
-
-// Accepting connections.
-func (lst *Listener) Accepting() bool {
-	lst.activeConnsMtx.Lock()
-	defer lst.activeConnsMtx.Unlock()
-	return lst.activeConns < lst.MaxConnections && lst.isStarted
-}
-
-// Connections return the number of active connections.
-func (lst *Listener) Connections() int {
-	lst.activeConnsMtx.Lock()
-	defer lst.activeConnsMtx.Unlock()
-	return lst.activeConns
 }
 
 const readBufferSize = 1024
@@ -515,6 +427,8 @@ func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
 		log.Println("while close connection:", err)
 	}
 }
+
+const tickerWhileStopping = time.Millisecond * 100
 
 type StoppableConnectionsMgr struct {
 	// Address is the address in ip:port format where server is listening.
