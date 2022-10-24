@@ -54,7 +54,7 @@ type BasicServer interface {
 
 type Listener struct {
 	PayloadStorage
-	StoppableConnectionsMgr
+	ConnectionMgr
 }
 
 const (
@@ -267,7 +267,7 @@ func (lp *ListenerPacket) handleIncomingPackets() {
 
 type TLSListener struct {
 	PayloadStorage
-	StoppableConnectionsMgr
+	ConnectionMgr
 
 	// KeyPem is the key used to enable TLS protocol
 	KeyPem []byte
@@ -430,7 +430,9 @@ func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
 
 const tickerWhileStopping = time.Millisecond * 100
 
-type StoppableConnectionsMgr struct {
+// ConnectionMgr is the manager of connections in Listeners servers.
+// ListenerPacket and similar implements its own connection management
+type ConnectionMgr struct {
 	// Address is the address in ip:port format where server is listening.
 	// If is not defined tcp://localhost:free_port will be used where free_port is a random port > 1024 that is not in
 	// using when server is started
@@ -449,7 +451,7 @@ type StoppableConnectionsMgr struct {
 	isStarted      bool
 }
 
-func (scm *StoppableConnectionsMgr) Stop() error {
+func (scm *ConnectionMgr) Stop() error {
 	defer func() {
 		scm.isStarted = false
 		scm.activeConns = 0
@@ -486,12 +488,12 @@ func (scm *StoppableConnectionsMgr) Stop() error {
 }
 
 // GetAddress returns the address where the server is listening.
-func (scm *StoppableConnectionsMgr) GetAddress() string {
+func (scm *ConnectionMgr) GetAddress() string {
 	return scm.Address
 }
 
 // Port returns the listening port number or 0 if it is unknown or -1 if server is not running after call Start.
-func (scm *StoppableConnectionsMgr) Port() int {
+func (scm *ConnectionMgr) Port() int {
 	if scm.listener == nil {
 		return -1
 	}
@@ -505,14 +507,14 @@ func (scm *StoppableConnectionsMgr) Port() int {
 }
 
 // Accepting connections.
-func (scm *StoppableConnectionsMgr) Accepting() bool {
+func (scm *ConnectionMgr) Accepting() bool {
 	scm.activeConnsMtx.Lock()
 	defer scm.activeConnsMtx.Unlock()
 	return scm.activeConns < scm.MaxConnections && scm.isStarted
 }
 
 // Connections return the number of active connections.
-func (scm *StoppableConnectionsMgr) Connections() int {
+func (scm *ConnectionMgr) Connections() int {
 	scm.activeConnsMtx.Lock()
 	defer scm.activeConnsMtx.Unlock()
 	return scm.activeConns
