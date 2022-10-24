@@ -659,8 +659,8 @@ qZVjobuCE7uwVkvHvkwhf9TfPnKh9IwzuEYrPAAk+5tXK1RFleSkuDRxQZol9AM5
 	cfg := &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	connTls := tls.Client(conn, cfg)
-	err = connTls.Handshake()
+	connTLS := tls.Client(conn, cfg)
+	err = connTLS.Handshake()
 	if err != nil {
 		panic(
 			fmt.Sprintf("while make TLS handshake to address %s address: %v", tcpAddr, err),
@@ -669,7 +669,7 @@ qZVjobuCE7uwVkvHvkwhf9TfPnKh9IwzuEYrPAAk+5tXK1RFleSkuDRxQZol9AM5
 
 	for i := 0; i < 10; i++ {
 		msg := fmt.Sprintf(" this is test number %d ", i)
-		_, err = connTls.Write([]byte(msg))
+		_, err = connTLS.Write([]byte(msg))
 		if err != nil {
 			panic(
 				fmt.Sprintf("while send data to socket: %v", err),
@@ -677,7 +677,7 @@ qZVjobuCE7uwVkvHvkwhf9TfPnKh9IwzuEYrPAAk+5tXK1RFleSkuDRxQZol9AM5
 		}
 	}
 
-	err = connTls.Close()
+	err = connTLS.Close()
 	if err != nil {
 		panic(
 			fmt.Sprintf("while close client: %v", err),
