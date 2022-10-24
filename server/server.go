@@ -404,6 +404,10 @@ func (tll *TLSListener) Start() error {
 	if err != nil {
 		return fmt.Errorf("while loads Key and Certificate: %w", err)
 	}
+
+	if tll.MinVersion == 0 {
+		tll.MinVersion = tls.VersionTLS12
+	}
 	config := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientAuth:   tll.ClientAuth,
