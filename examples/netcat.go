@@ -41,14 +41,16 @@ func main() {
 
 	if isListener {
 		lst := server.Listener{
-			Address: os.Args[1],
+			ConnectionMgr: server.ConnectionMgr{
+				Address: address,
+			},
 		}
 		lst.CallBack = callFunc
 
 		bs = &lst
 	} else {
 		lp := server.ListenerPacket{
-			Address: os.Args[1],
+			Address: address,
 		}
 		lp.CallBack = callFunc
 
