@@ -6,6 +6,8 @@ The payload items can be listed while server is running of after it is closed
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"log"
@@ -343,6 +345,250 @@ func (lp *ListenerPacket) handleIncomingPackets() {
 			addr := remoteAddr.String()
 			lp.AddPayload(addr, buffer, n)
 		}
+	}
+}
+
+type TLSListener struct {
+	PayloadStorage
+
+	// Address is the address in ip:port format where server is listening.
+	// If is not defined tcp://localhost:free_port will be used where free_port is a random port > 1024 that is not in
+	// using when server is started
+	// In the case of udp protocol de ip must be empty. For example udp://:13000
+	Address string
+
+	// Max number of connections to accept,
+	MaxConnections int
+
+	// StopTimeout is the timeout to wait for read data during Stop operation
+	StopTimeout time.Duration
+
+	// KeyPem is the key used to enable TLS protocol
+	KeyPem []byte
+	// CertPem is the cert used to enable TLS protocol
+	CertPem []byte
+	// ClientAuth is the value with same name described in https://pkg.go.dev/crypto/tls@go1.16.15#Config
+	ClientAuth tls.ClientAuthType
+	// ClientCAs is the list of CAs used to verify client certs. See https://pkg.go.dev/crypto/tls@go1.16.15#Config
+	ClientCAs [][]byte
+	// MinVersion is the value with same name described in https://pkg.go.dev/crypto/tls@go1.16.15#Config
+	MinVersion uint16
+	// MinVersion is the value with same name described in https://pkg.go.dev/crypto/tls@go1.16.15#Config
+	MaxVersion uint16
+	// KeyLogWriter is the value with same name described in https://pkg.go.dev/crypto/tls@go1.16.15#Config
+	KeyLogWriter io.Writer
+
+	activeConns    int
+	activeConnsMtx sync.Mutex
+	listener       net.Listener
+	isStarted      bool
+}
+
+// Start starts the server (listener) and enable the input data processing.
+func (tll *TLSListener) Start() error {
+	if tll.Address == "" {
+		tll.Address = "tcp://localhost:0"
+	}
+
+	netType, addr, err := splitAddress(tll.Address)
+	if err != nil {
+		return fmt.Errorf("while extracts protocol, address and port: %w", err)
+	}
+
+	cert, err := tls.X509KeyPair(tll.CertPem, tll.KeyPem)
+	if err != nil {
+		return fmt.Errorf("while loads Key and Certificate: %w", err)
+	}
+	config := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tll.ClientAuth,
+		MinVersion:   tll.MinVersion,
+		MaxVersion:   tll.MaxVersion,
+		KeyLogWriter: tll.KeyLogWriter,
+	}
+
+	if len(tll.ClientCAs) > 0 {
+		config.ClientCAs = x509.NewCertPool()
+		for i, bs := range tll.ClientCAs {
+			ok := config.ClientCAs.AppendCertsFromPEM(bs)
+			if !ok {
+				return fmt.Errorf("ClientCA certificate number %d to authenticate user can not be loaded", i+1)
+			}
+		}
+	}
+
+	tll.listener, err = tls.Listen(netType, addr, config)
+	if err != nil {
+		return fmt.Errorf("while starts listener: %w, '%s' '%s' '%+v'", err, netType, addr, config)
+	}
+
+	// Default values
+	if tll.Address == "tcp://localhost:0" {
+		tll.Address = fmt.Sprintf("tcp://localhost:%d", tll.Port())
+	}
+	tll.Init()
+	if tll.MaxConnections <= 0 {
+		tll.MaxConnections = DefaultMaxConnections
+	}
+	if tll.StopTimeout == 0 {
+		tll.StopTimeout = DefaultSopTimeout
+	}
+
+	// Start the server to accept connection
+	ensureStarted := make(chan bool)
+	go func() {
+		firstConn := true
+		for {
+			if tll.Connections() == tll.MaxConnections {
+				log.Printf("Max active connections limit (%d) reached with %d\n", tll.MaxConnections, tll.activeConns)
+			} else {
+				if firstConn {
+					ensureStarted <- true
+					firstConn = false
+				}
+
+				conn, err := tll.listener.Accept()
+
+				if err != nil {
+					log.Printf("Error while accept connection %v\n", err)
+					break
+				} else {
+					tlsConn := conn.(*tls.Conn)
+					go tll.handleIncomingTLSConnection(tlsConn)
+				}
+			}
+		}
+	}()
+
+	<-ensureStarted
+	tll.isStarted = true
+	close(ensureStarted)
+
+	return nil
+}
+
+// Stop stops the listener, no more connections will be allowed and data processing is stopped.
+func (tll *TLSListener) Stop() error {
+	defer func() {
+		tll.isStarted = false
+		tll.activeConns = 0
+	}()
+
+	connPending := make(chan bool)
+	defer close(connPending)
+	go func() {
+		for {
+			tll.activeConnsMtx.Lock()
+			if tll.activeConns <= 0 {
+				tll.activeConnsMtx.Unlock()
+				connPending <- true
+				break
+			}
+			tll.activeConnsMtx.Unlock()
+			time.Sleep(tickerWhileStopping)
+		}
+	}()
+
+	select {
+	case <-connPending:
+	case <-time.After(tll.StopTimeout):
+		defer tll.listener.Close()
+		return fmt.Errorf("stop timeout %v reached while wait for stopping", tll.StopTimeout)
+	}
+
+	err := tll.listener.Close()
+	if err != nil {
+		return fmt.Errorf("while close the listener: %w", err)
+	}
+
+	return nil
+}
+
+// GetAddress returns the address where the server is listening.
+func (tll *TLSListener) GetAddress() string {
+	return tll.Address
+}
+
+// Port returns the listening port number or 0 if it is unknown or -1 if server is not running after call Start.
+func (tll *TLSListener) Port() int {
+	if tll.listener == nil {
+		return -1
+	}
+
+	tcpAddr, ok := tll.listener.Addr().(*net.TCPAddr)
+	if ok {
+		return tcpAddr.Port
+	}
+
+	return 0
+}
+
+// Accepting connections.
+func (tll *TLSListener) Accepting() bool {
+	tll.activeConnsMtx.Lock()
+	defer tll.activeConnsMtx.Unlock()
+	return tll.activeConns < tll.MaxConnections && tll.isStarted
+}
+
+// Connections return the number of active connections.
+func (tll *TLSListener) Connections() int {
+	tll.activeConnsMtx.Lock()
+	defer tll.activeConnsMtx.Unlock()
+	return tll.activeConns
+}
+
+func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
+	defer func() {
+		tll.activeConnsMtx.Lock()
+		tll.activeConns--
+		tll.activeConnsMtx.Unlock()
+	}()
+
+	tll.activeConnsMtx.Lock()
+	tll.activeConns++
+	tll.activeConnsMtx.Unlock()
+
+	// store incoming data
+	clientId := conn.RemoteAddr().String()
+
+	err := conn.Handshake()
+	if err != nil {
+		log.Println("Error while make handshake:", err)
+		return
+	}
+
+	cs := conn.ConnectionState()
+	nCerts := len(cs.PeerCertificates)
+
+	if nCerts > 0 {
+		clientId = "@" + clientId
+		for i, c := range cs.PeerCertificates {
+			clientId = c.Subject.String() + clientId
+			if i < nCerts-1 {
+				clientId = "-" + clientId
+			}
+		}
+	}
+
+	for {
+		buffer := make([]byte, readBufferSize)
+		n, err := conn.Read(buffer)
+		if err != nil && err != io.EOF {
+			log.Println("while close connection:", err)
+			break
+		}
+		if n != 0 {
+			tll.AddPayload(clientId, buffer, n)
+		}
+		if err == io.EOF {
+			break
+		}
+	}
+
+	// close conn
+	err = conn.Close()
+	if err != nil {
+		log.Println("while close connection:", err)
 	}
 }
 
