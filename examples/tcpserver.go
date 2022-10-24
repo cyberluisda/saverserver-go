@@ -22,7 +22,9 @@ func main() {
 	}
 
 	lst := server.Listener{
-		Address: os.Args[1],
+		ConnectionMgr: server.ConnectionMgr{
+			Address: os.Args[1],
+		},
 	}
 
 	err := lst.Start()
