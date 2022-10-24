@@ -554,7 +554,7 @@ func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
 	tll.activeConnsMtx.Unlock()
 
 	// store incoming data
-	clientId := conn.RemoteAddr().String()
+	clientID := conn.RemoteAddr().String()
 
 	err := conn.Handshake()
 	if err != nil {
@@ -566,11 +566,11 @@ func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
 	nCerts := len(cs.PeerCertificates)
 
 	if nCerts > 0 {
-		clientId = "@" + clientId
+		clientID = "@" + clientID
 		for i, c := range cs.PeerCertificates {
-			clientId = c.Subject.String() + clientId
+			clientID = c.Subject.String() + clientID
 			if i < nCerts-1 {
-				clientId = "-" + clientId
+				clientID = "-" + clientID
 			}
 		}
 	}
@@ -583,7 +583,7 @@ func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
 			break
 		}
 		if n != 0 {
-			tll.AddPayload(clientId, buffer, n)
+			tll.AddPayload(clientID, buffer, n)
 		}
 		if err == io.EOF {
 			break
