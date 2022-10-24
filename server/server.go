@@ -219,7 +219,7 @@ func (lst *Listener) handleIncomingConnection(conn net.Conn) {
 	}()
 
 	lst.activeConnsMtx.Lock()
-	lst.activeConns--
+	lst.activeConns++
 	lst.activeConnsMtx.Unlock()
 
 	// store incoming data
