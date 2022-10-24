@@ -547,6 +547,7 @@ func ExampleListenerPacket_CallBack() {
 	// #Items 0
 }
 
+// nolint:lll,funlen
 func ExampleTLSListener() {
 	lst := TLSListener{
 		CertPem: []byte(`-----BEGIN CERTIFICATE-----
@@ -657,7 +658,7 @@ qZVjobuCE7uwVkvHvkwhf9TfPnKh9IwzuEYrPAAk+5tXK1RFleSkuDRxQZol9AM5
 		)
 	}
 	cfg := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // nolint:gosec
 	}
 	connTLS := tls.Client(conn, cfg)
 	err = connTLS.Handshake()
@@ -698,6 +699,7 @@ qZVjobuCE7uwVkvHvkwhf9TfPnKh9IwzuEYrPAAk+5tXK1RFleSkuDRxQZol9AM5
 	//  this is test number 0  this is test number 1  this is test number 2  this is test number 3  this is test number 4  this is test number 5  this is test number 6  this is test number 7  this is test number 8  this is test number 9
 }
 
+// nolint:lll,funlen
 func ExampleTLSListener_client_certs() {
 	lst := TLSListener{
 		ClientAuth: tls.RequestClientCert,
@@ -890,7 +892,7 @@ NZinW9MPiwyxeVHziR4SWwHvsCi1tCSW0BYa1ceqc6t8ibU7qclGGPxhSzqNiVIK
 		)
 	}
 	cfg := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // nolint:gosec
 		Certificates:       []tls.Certificate{clientCrt},
 	}
 
