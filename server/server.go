@@ -352,7 +352,7 @@ type PayloadStorage struct {
 
 	// CallBack is a function called in each time that new payload is arrived. The func
 	//	receive the address and the payload received and it should return true if payload
-	// 	must be saved or false if payload must be disscarted.
+	// 	must be saved or false if payload must be discarded.
 	CallBack func(addr string, payload []byte) bool
 }
 
