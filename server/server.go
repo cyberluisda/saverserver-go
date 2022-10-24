@@ -602,6 +602,94 @@ func (tll *TLSListener) handleIncomingTLSConnection(conn *tls.Conn) {
 	}
 }
 
+type StoppableConnectionsMgr struct {
+	// Address is the address in ip:port format where server is listening.
+	// If is not defined tcp://localhost:free_port will be used where free_port is a random port > 1024 that is not in
+	// using when server is started
+	// In the case of udp protocol de ip must be empty. For example udp://:13000
+	Address string
+
+	// Max number of connections to accept,
+	MaxConnections int
+
+	// StopTimeout is the timeout to wait for read data during Stop operation
+	StopTimeout time.Duration
+
+	activeConns    int
+	activeConnsMtx sync.Mutex
+	listener       net.Listener
+	isStarted      bool
+}
+
+func (scm *StoppableConnectionsMgr) Stop() error {
+	defer func() {
+		scm.isStarted = false
+		scm.activeConns = 0
+	}()
+
+	connPending := make(chan bool)
+	defer close(connPending)
+	go func() {
+		for {
+			scm.activeConnsMtx.Lock()
+			if scm.activeConns <= 0 {
+				scm.activeConnsMtx.Unlock()
+				connPending <- true
+				break
+			}
+			scm.activeConnsMtx.Unlock()
+			time.Sleep(tickerWhileStopping)
+		}
+	}()
+
+	select {
+	case <-connPending:
+	case <-time.After(scm.StopTimeout):
+		defer scm.listener.Close()
+		return fmt.Errorf("stop timeout %v reached while wait for stopping", scm.StopTimeout)
+	}
+
+	err := scm.listener.Close()
+	if err != nil {
+		return fmt.Errorf("while close the listener: %w", err)
+	}
+
+	return nil
+}
+
+// GetAddress returns the address where the server is listening.
+func (scm *StoppableConnectionsMgr) GetAddress() string {
+	return scm.Address
+}
+
+// Port returns the listening port number or 0 if it is unknown or -1 if server is not running after call Start.
+func (scm *StoppableConnectionsMgr) Port() int {
+	if scm.listener == nil {
+		return -1
+	}
+
+	tcpAddr, ok := scm.listener.Addr().(*net.TCPAddr)
+	if ok {
+		return tcpAddr.Port
+	}
+
+	return 0
+}
+
+// Accepting connections.
+func (scm *StoppableConnectionsMgr) Accepting() bool {
+	scm.activeConnsMtx.Lock()
+	defer scm.activeConnsMtx.Unlock()
+	return scm.activeConns < scm.MaxConnections && scm.isStarted
+}
+
+// Connections return the number of active connections.
+func (scm *StoppableConnectionsMgr) Connections() int {
+	scm.activeConnsMtx.Lock()
+	defer scm.activeConnsMtx.Unlock()
+	return scm.activeConns
+}
+
 type PayloadStorage struct {
 	payloads    map[string][]byte
 	payloadsMtx sync.RWMutex
