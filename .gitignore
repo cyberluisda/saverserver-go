@@ -19,3 +19,6 @@
 
 # Go workspace file
 build
+
+# Tools
+tools/tls
