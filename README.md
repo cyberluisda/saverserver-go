@@ -12,4 +12,4 @@ The tools provided with the project are:
 
 - [x] TLS Listener
 - [x] Add callback support for each payload received
-- [ ] Helper tool/scripts to create certificates (server and client) in order to be a valid test mockup for `devo-sender` from [devo-go](https://github.com/cyberluisda/devo-go)
+- [x] Helper tool/scripts to create certificates (server and client) in order to be a valid test mockup for `devo-sender` from [devo-go](https://github.com/cyberluisda/devo-go)
